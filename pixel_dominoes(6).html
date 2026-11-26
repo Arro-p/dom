@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pixel Dominoes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #1e1e2f;
+            --panel-bg: #2a2a40;
+            --text-color: #f8f8f2;
+            --domino-bg: #f1f1e6;
+            --domino-border: #111;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Press Start 2P', cursive;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* Pixel Borders & Shadows */
+        .pixel-box {
+            background-color: var(--panel-bg);
+            border: 4px solid var(--domino-border);
+            box-shadow: 4px 4px 0px 0px rgba(0,0,0,0.5);
+        }
+
+        .btn {
+            background-color: #ff5555;
+            color: white;
+            padding: 10px 20px;
+            border: 4px solid #000;
+            box-shadow: 4px 4px 0px #000;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-size: 12px;
+            transition: all 0.1s;
+            touch-action: manipulation;
+        }
+        
+        .btn:active {
+            transform: translate(4px, 4px);
+            box-shadow: 0px 0px 0px #000;
+        }
+        
+        .btn:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: 4px 4px 0px #000;
+        }
+
+        /* Dropdown Styles */
+        .pixel-select {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            border: 4px solid #000;
+            padding: 12px;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 10px;
+            box-shadow: 4px 4px 0px #000;
+            appearance: none;
+            cursor: pointer;
+            text-align: center;
+        }
+        .pixel-select:focus {
+            outline: none;
+            border-color: #8be9fd;
+        }
+
+        /* Domino Styles */
+        .domino {
+            box-sizing: border-box;
+            background-color: var(--domino-bg);
+            border: 4px solid var(--domino-border);
+            border-radius: 0;
+            display: inline-flex;
+            box-shadow: 2px 2px 0 #000;
+            margin: 0 4px;
+            transition: transform 0.1s;
+            flex-shrink: 0;
+            touch-action: manipulation;
+        }
+
+        .domino.vertical {
+            width: 44px;
+            height: 88px;
+            flex-direction: column;
+        }
+
+        .domino.horizontal {
+            width: 88px;
+            height: 44px;
+            flex-direction: row;
+        }
+
+        .hand .domino {
+            cursor: pointer;
+        }
+        .hand .domino:hover {
+            transform: translateY(-10px);
+        }
+        
+        .hand .domino.valid-move {
+            box-shadow: 0 0 10px 4px #50fa7b;
+        }
+
+        .half {
+            box-sizing: border-box;
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            padding: 2px;
+            position: relative;
+        }
+
+        .vertical .half:first-child {
+            border-bottom: 2px solid var(--domino-border);
+        }
+        .vertical .half:last-child {
+            border-top: 2px solid var(--domino-border);
+        }
+        .horizontal .half:first-child {
+            border-right: 2px solid var(--domino-border);
+        }
+        .horizontal .half:last-child {
+            border-left: 2px solid var(--domino-border);
+        }
+
+        /* Colored Dots (Pixel Style) */
+        .dot {
+            width: 8px;
+            height: 8px;
+            background-color: #000;
+            justify-self: center;
+            align-self: center;
+        }
+        
+        /* Specific positions for standard domino pip layout */
+        .p-center { grid-area: 2 / 2 / 3 / 3; }
+        .p-top-left { grid-area: 1 / 1 / 2 / 2; }
+        .p-top-right { grid-area: 1 / 3 / 2 / 4; }
+        .p-mid-left { grid-area: 2 / 1 / 3 / 2; }
+        .p-mid-right { grid-area: 2 / 3 / 3 / 4; }
+        .p-bot-left { grid-area: 3 / 1 / 4 / 2; }
+        .p-bot-right { grid-area: 3 / 3 / 4 / 4; }
+
+        /* Dot Colors */
+        .c1 { background-color: #8be9fd; } /* Cyan */
+        .c2 { background-color: #50fa7b; } /* Green */
+        .c3 { background-color: #ff5555; } /* Red */
+        .c4 { background-color: #f1fa8c; } /* Yellow */
+        .c5 { background-color: #bd93f9; } /* Purple */
+        .c6 { background-color: #ffb86c; } /* Orange */
+
+        /* Face down styling */
+        .face-down {
+            background-color: #44475a;
+            background-image: linear-gradient(45deg, #282a36 25%, transparent 25%, transparent 75%, #282a36 75%, #282a36), 
+                              linear-gradient(45deg, #282a36 25%, transparent 25%, transparent 75%, #282a36 75%, #282a36);
+            background-size: 10px 10px;
+            background-position: 0 0, 5px 5px;
+        }
+        
+        .face-down .half { display: none; }
+
+        /* Game Layout */
+        #app {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            width: 100%;
+        }
+        .screen.active {
+            display: flex;
+        }
+
+        #board-container {
+            flex: 1;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            overflow: auto;
+            padding: 20px;
+            box-sizing: border-box;
+            scrollbar-width: thin;
+            scrollbar-color: #ff5555 #1e1e2f;
+        }
+        #board {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: min-content;
+            margin: 0 auto;
+        }
+
+        .hand {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            padding: 20px;
+            background-color: rgba(0,0,0,0.3);
+            width: 100%;
+            overflow-x: auto;
+            min-height: 140px;
+            align-items: flex-end;
+        }
+
+        .cpu-hand {
+            min-height: 110px;
+            align-items: flex-start;
+        }
+
+        /* Modals and Overlays */
+        #msg-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 50;
+            background: rgba(0,0,0,0.8);
+            padding: 20px;
+            text-align: center;
+            display: none;
+        }
+
+        #choice-modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 100;
+            background: var(--panel-bg);
+            border: 4px solid #000;
+            padding: 20px;
+            display: none;
+            flex-direction: column;
+            gap: 15px;
+            align-items: center;
+            box-shadow: 8px 8px 0 rgba(0,0,0,0.5);
+        }
+
+        .boneyard-info {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            text-align: center;
+            font-size: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .score-board {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            text-align: left;
+        }
+
+        .hud-text { font-size: 12px; color: #8be9fd; text-shadow: 2px 2px #000; }
+        .highlight-text { color: #f1fa8c; }
+        
+        /* Responsive adjustments */
+        @media (max-width: 600px) {
+            .domino.vertical { width: 34px; height: 68px; }
+            .domino.horizontal { width: 68px; height: 34px; }
+            .dot { width: 6px; height: 6px; }
+            .hud-text { font-size: 10px; }
+            .boneyard-info, .score-board { top: auto; bottom: 150px; left: 10px; right: auto; flex-direction: row; font-size: 8px; }
+            .boneyard-info { right: 10px; left: auto; }
+            .btn { font-size: 10px; padding: 8px 12px; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <!-- Menu Screen -->
+    <div id="menu-screen" class="screen active">
+        <h1 class="text-3xl md:text-5xl text-center mb-8 text-[#50fa7b]" style="text-shadow: 4px 4px #000;">PIXEL<br><br>DOMINOES</h1>
+        
+        <div class="pixel-box p-6 flex flex-col gap-4 max-w-lg w-11/12 text-center">
+            <p class="text-[10px] md:text-xs mb-4 leading-5 text-[#8be9fd]">Select a Game Mode:</p>
+            
+            <select id="mode-select" class="pixel-select w-full mb-4" onchange="updateModeDescription()">
+                <option value="DRAW">Draw Dominoes</option>
+                <option value="BLOCK">Block (Bones)</option>
+                <option value="FIVES">All Fives</option>
+            </select>
+
+            <p id="mode-description" class="text-[8px] text-gray-400 mb-6 text-left h-12 leading-relaxed">Standard rules. If you cannot play, you must draw from the boneyard until you can.</p>
+
+            <button class="btn w-full" onclick="startSelectedGame()">PLAY</button>
+        </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="game-screen" class="screen relative">
+        <!-- CPU Hand -->
+        <div class="w-full bg-[#111]">
+            <p class="text-center text-[10px] pt-2 text-[#ff5555]">CPU Player <span id="cpu-tiles-count">(7)</span></p>
+            <div id="cpu-hand" class="hand cpu-hand"></div>
+        </div>
+
+        <!-- Middle Area (Board & HUD) -->
+        <div class="w-full flex-1 relative flex flex-col min-h-0 overflow-hidden">
+            <!-- HUD Left -->
+            <div class="score-board pixel-box p-3">
+                <div class="hud-text">Score</div>
+                <div class="text-[10px]">You: <span id="player-score" class="highlight-text">0</span></div>
+                <div class="text-[10px]">CPU: <span id="cpu-score" class="highlight-text">0</span></div>
+                <div id="mode-display" class="text-[8px] mt-2 text-gray-400">MODE</div>
+            </div>
+
+            <!-- Board -->
+            <div id="board-container">
+                <div id="board"></div>
+            </div>
+
+            <!-- HUD Right -->
+            <div class="boneyard-info pixel-box p-3">
+                <div class="hud-text">Boneyard</div>
+                <div class="text-2xl highlight-text" id="boneyard-count">14</div>
+                <button id="draw-btn" class="btn mt-2" onclick="playerDraw()">DRAW</button>
+                <button id="pass-btn" class="btn mt-2" onclick="playerPass()" style="display:none; background-color:#f1fa8c; color:#000;">PASS</button>
+            </div>
+        </div>
+
+        <!-- Message Overlay -->
+        <div id="msg-overlay" class="pixel-box">
+            <h2 id="msg-title" class="text-xl mb-4 text-[#50fa7b]">Your Turn</h2>
+            <button class="btn" id="msg-btn" onclick="closeMessage()">OK</button>
+        </div>
+
+        <!-- Left/Right Choice Modal -->
+        <div id="choice-modal">
+            <p class="text-xs text-[#8be9fd]">Play on which end?</p>
+            <div class="flex gap-4">
+                <button class="btn" onclick="executePlayChoice('left')">LEFT END</button>
+                <button class="btn" onclick="executePlayChoice('right')">RIGHT END</button>
+            </div>
+            <button class="btn mt-2" style="background:#555;" onclick="cancelPlayChoice()">CANCEL</button>
+        </div>
+
+        <!-- Player Hand -->
+        <div class="w-full bg-[#111]">
+            <p class="text-center text-[10px] pt-2 text-[#50fa7b]">Your Hand <span id="player-turn-indicator"></span></p>
+            <div id="player-hand" class="hand"></div>
+        </div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="game-over-screen" class="screen">
+        <h1 id="game-over-title" class="text-4xl text-center mb-6" style="text-shadow: 4px 4px #000;">GAME OVER</h1>
+        <div class="pixel-box p-6 flex flex-column gap-4 max-w-lg w-11/12 text-center">
+            <p id="game-over-desc" class="text-sm mb-6 text-[#8be9fd] leading-6"></p>
+            <div class="flex justify-between w-full mb-6 px-4">
+                <div class="text-left">
+                    <p class="text-[10px] text-gray-400">YOUR SCORE</p>
+                    <p id="final-player-score" class="text-xl text-[#50fa7b]">0</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-[10px] text-gray-400">CPU SCORE</p>
+                    <p id="final-cpu-score" class="text-xl text-[#ff5555]">0</p>
+                </div>
+            </div>
+            <button class="btn w-full" onclick="returnToMenu()">MAIN MENU</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    /* --- Game State --- */
+    let mode = 'DRAW'; // DRAW, BLOCK, FIVES
+    let deck = [];
+    let playerHand = [];
+    let cpuHand = [];
+    let board = []; // Array of played dominoes
+    
+    let leftEnd = null;
+    let rightEnd = null;
+    
+    let isPlayerTurn = true;
+    let playerScore = 0;
+    let cpuScore = 0;
+    
+    let pendingPlay = null; // Stores tile info when user needs to choose left/right
+    let rootIndex = 0; // Tracks the center tile for 2D layout
+    
+    const maxPips = 6;
+
+    /* --- DOM Elements --- */
+    const screens = {
+        menu: document.getElementById('menu-screen'),
+        game: document.getElementById('game-screen'),
+        over: document.getElementById('game-over-screen')
+    };
+    
+    const ui = {
+        board: document.getElementById('board'),
+        playerHand: document.getElementById('player-hand'),
+        cpuHand: document.getElementById('cpu-hand'),
+        boneyardCount: document.getElementById('boneyard-count'),
+        drawBtn: document.getElementById('draw-btn'),
+        passBtn: document.getElementById('pass-btn'),
+        playerScore: document.getElementById('player-score'),
+        cpuScore: document.getElementById('cpu-score'),
+        modeDisplay: document.getElementById('mode-display'),
+        msgOverlay: document.getElementById('msg-overlay'),
+        msgTitle: document.getElementById('msg-title'),
+        choiceModal: document.getElementById('choice-modal'),
+        playerTurnInd: document.getElementById('player-turn-indicator'),
+        cpuCount: document.getElementById('cpu-tiles-count'),
+        boardCont: document.getElementById('board-container')
+    };
+
+    /* --- Initialization --- */
+    function showScreen(screenName) {
+        Object.values(screens).forEach(s => s.classList.remove('active'));
+        screens[screenName].classList.add('active');
+    }
+
+    function startGame(selectedMode) {
+        mode = selectedMode;
+        
+        playerScore = 0;
+        cpuScore = 0;
+
+        ui.modeDisplay.innerText = mode + " MODE";
+        ui.playerScore.parentElement.style.display = (mode === 'FIVES') ? 'block' : 'none';
+        ui.cpuScore.parentElement.style.display = (mode === 'FIVES') ? 'block' : 'none';
+        
+        ui.boardCont.style.display = 'flex';
+        
+        generateDeck();
+        dealHands();
+        board = [];
+        leftEnd = null;
+        rightEnd = null;
+        rootIndex = 0;
+        
+        // Determine first player (highest double, or random)
+        isPlayerTurn = Math.random() > 0.5;
+
+        showScreen('game');
+        updateUI();
+        
+        if (isPlayerTurn) {
+            showMessage("Game Start! Your Turn.");
+        } else {
+            showMessage("Game Start! CPU goes first.");
+            setTimeout(cpuPlay, 2000);
+        }
+    }
+
+    function updateModeDescription() {
+        const select = document.getElementById('mode-select');
+        const desc = document.getElementById('mode-description');
+        if (select.value === 'DRAW') {
+            desc.innerText = "Standard rules. If you cannot play, you must draw from the boneyard until you can.";
+        } else if (select.value === 'BLOCK') {
+            desc.innerText = "No drawing. If you cannot play, you pass your turn. Game ends when blocked.";
+        } else if (select.value === 'FIVES') {
+            desc.innerText = "Draw rules, but you score points if the ends of the board sum to a multiple of 5.";
+        }
+    }
+
+    function startSelectedGame() {
+        const select = document.getElementById('mode-select');
+        startGame(select.value);
+    }
+
+    function returnToMenu() {
+        showScreen('menu');
+    }
+
+    /* --- Core Logic --- */
+    function generateDeck() {
+        deck = [];
+        let idCounter = 0;
+        for (let i = 0; i <= maxPips; i++) {
+            for (let j = i; j <= maxPips; j++) {
+                deck.push({ val1: i, val2: j, id: idCounter++ });
+            }
+        }
+        // Shuffle
+        for (let i = deck.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [deck[i], deck[j]] = [deck[j], deck[i]];
+        }
+    }
+
+    function dealHands() {
+        playerHand = [];
+        cpuHand = [];
+        for (let i = 0; i < 7; i++) {
+            if (deck.length > 0) playerHand.push(deck.pop());
+            if (deck.length > 0) cpuHand.push(deck.pop());
+        }
+    }
+
+    /* --- UI Rendering --- */
+    function getDotPositions(val) {
+        switch(val) {
+            case 1: return ['p-center'];
+            case 2: return ['p-top-left', 'p-bot-right'];
+            case 3: return ['p-top-left', 'p-center', 'p-bot-right'];
+            case 4: return ['p-top-left', 'p-top-right', 'p-bot-left', 'p-bot-right'];
+            case 5: return ['p-top-left', 'p-top-right', 'p-center', 'p-bot-left', 'p-bot-right'];
+            case 6: return ['p-top-left', 'p-mid-left', 'p-bot-left', 'p-top-right', 'p-mid-right', 'p-bot-right'];
+            default: return [];
+        }
+    }
+
+    function createDominoElement(tile, isFaceUp, orientation = 'vertical') {
+        const dom = document.createElement('div');
+        dom.className = `domino ${orientation} ${!isFaceUp ? 'face-down' : ''}`;
+        dom.dataset.id = tile.id;
+
+        if (isFaceUp) {
+            const half1 = document.createElement('div');
+            half1.className = 'half';
+            getDotPositions(tile.val1).forEach(pos => {
+                const dot = document.createElement('div');
+                dot.className = `dot ${pos} c${tile.val1}`;
+                half1.appendChild(dot);
+            });
+
+            const half2 = document.createElement('div');
+            half2.className = 'half';
+            getDotPositions(tile.val2).forEach(pos => {
+                const dot = document.createElement('div');
+                dot.className = `dot ${pos} c${tile.val2}`;
+                half2.appendChild(dot);
+            });
+
+            dom.appendChild(half1);
+            dom.appendChild(half2);
+        }
+        return dom;
+    }
+
+    function updateUI() {
+        // Render Boneyard
+        ui.boneyardCount.innerText = deck.length;
+
+        // Render Player Hand
+        ui.playerHand.innerHTML = '';
+        const validMoves = isPlayerTurn ? getValidMoves(playerHand, 'player') : [];
+        
+        playerHand.forEach(tile => {
+            const el = createDominoElement(tile, true, 'vertical');
+            if (isPlayerTurn && validMoves.some(m => m.tile.id === tile.id)) {
+                el.classList.add('valid-move');
+            }
+            if (isPlayerTurn) {
+                el.onclick = () => handlePlayerClick(tile);
+            }
+            ui.playerHand.appendChild(el);
+        });
+
+        // Render CPU Hand
+        ui.cpuHand.innerHTML = '';
+        ui.cpuCount.innerText = `(${cpuHand.length})`;
+        cpuHand.forEach(tile => {
+            ui.cpuHand.appendChild(createDominoElement(tile, false, 'vertical'));
+        });
+
+        // Render Board (Straight Line Layout)
+        ui.board.innerHTML = '';
+        if (board.length > 0) {
+            board.forEach(item => {
+                const orientation = item.tile.val1 === item.tile.val2 ? 'vertical' : 'horizontal';
+                const el = createDominoElement({ id: item.tile.id, val1: item.visualVal1, val2: item.visualVal2 }, true, orientation);
+                ui.board.appendChild(el);
+            });
+        }
+
+        // Center scroll on board change
+        const boardCont = document.getElementById('board-container');
+        boardCont.scrollTo({
+            left: (boardCont.scrollWidth - boardCont.clientWidth) / 2,
+            behavior: 'smooth'
+        });
+
+        // Update Scores
+        ui.playerScore.innerText = playerScore;
+        ui.cpuScore.innerText = cpuScore;
+
+        // Buttons
+        ui.drawBtn.style.display = 'none';
+        ui.passBtn.style.display = 'none';
+        ui.playerTurnInd.innerText = isPlayerTurn ? "- YOUR TURN" : "";
+        ui.playerTurnInd.style.color = isPlayerTurn ? "#50fa7b" : "#444";
+
+        if (isPlayerTurn) {
+            if (validMoves.length === 0) {
+                if (deck.length > 0 && mode !== 'BLOCK') {
+                    ui.drawBtn.style.display = 'block';
+                    ui.drawBtn.disabled = false;
+                } else {
+                    ui.passBtn.style.display = 'block';
+                }
+            }
+        }
+    }
+
+    /* --- Game Mechanics --- */
+    function getValidMoves(hand, playerType = 'player') {
+        if (board.length === 0) {
+            // First turn: any tile is valid
+            return hand.map(tile => ({ tile, side: 'both' }));
+        }
+
+        let moves = [];
+        hand.forEach(tile => {
+            let canPlayLeft = tile.val1 === leftEnd || tile.val2 === leftEnd;
+            let canPlayRight = tile.val1 === rightEnd || tile.val2 === rightEnd;
+            
+            if (canPlayLeft && canPlayRight) moves.push({ tile, side: 'both' });
+            else if (canPlayLeft) moves.push({ tile, side: 'left' });
+            else if (canPlayRight) moves.push({ tile, side: 'right' });
+        });
+        return moves;
+    }
+
+    function handlePlayerClick(tile) {
+        if (!isPlayerTurn) return;
+        
+        const validMoves = getValidMoves(playerHand, 'player');
+        const move = validMoves.find(m => m.tile.id === tile.id);
+        
+        if (!move) {
+            // Invalid move shake animation could go here
+            return;
+        }
+
+        if (move.side === 'both' && board.length > 0 && leftEnd !== rightEnd) {
+            // Ask player where to play
+            pendingPlay = tile;
+            ui.choiceModal.style.display = 'flex';
+        } else {
+            // Auto play
+            let side = move.side === 'both' ? 'right' : move.side;
+            if (board.length === 0) side = 'right';
+            executePlay(tile, side, 'player', move);
+        }
+    }
+
+    function cancelPlayChoice() {
+        pendingPlay = null;
+        ui.choiceModal.style.display = 'none';
+    }
+
+    function executePlayChoice(side) {
+        ui.choiceModal.style.display = 'none';
+        if (pendingPlay) {
+            executePlay(pendingPlay, side, 'player');
+            pendingPlay = null;
+        }
+    }
+
+    function executePlay(tile, side, playerType, moveObj = null) {
+        // Remove from hand
+        if (playerType === 'player') {
+            playerHand = playerHand.filter(t => t.id !== tile.id);
+        } else {
+            cpuHand = cpuHand.filter(t => t.id !== tile.id);
+        }
+
+        // Add to board
+        if (board.length === 0) {
+            leftEnd = tile.val1;
+            rightEnd = tile.val2;
+            board.push({ tile, visualVal1: tile.val1, visualVal2: tile.val2 });
+        } else if (side === 'left') {
+            let v1 = tile.val1 === leftEnd ? tile.val2 : tile.val1;
+            let v2 = tile.val1 === leftEnd ? tile.val1 : tile.val2;
+            leftEnd = v1;
+            board.unshift({ tile, visualVal1: v1, visualVal2: v2 });
+        } else {
+            let v1 = tile.val1 === rightEnd ? tile.val1 : tile.val2;
+            let v2 = tile.val1 === rightEnd ? tile.val2 : tile.val1;
+            rightEnd = v2;
+            board.push({ tile, visualVal1: v1, visualVal2: v2 });
+        }
+
+        // Fives Scoring
+        if (mode === 'FIVES' && board.length > 0) {
+            let total = 0;
+            // Calculate ends based on doubles logic (doubles count fully)
+            let leftTile = board[0];
+            let rightTile = board[board.length - 1];
+            
+            if (board.length === 1) {
+                total = leftTile.visualVal1 + leftTile.visualVal2;
+            } else {
+                total += (leftTile.visualVal1 === leftTile.visualVal2) ? leftTile.visualVal1 * 2 : leftTile.visualVal1;
+                total += (rightTile.visualVal1 === rightTile.visualVal2) ? rightTile.visualVal2 * 2 : rightTile.visualVal2;
+            }
+
+            if (total % 5 === 0 && total > 0) {
+                if (playerType === 'player') {
+                    playerScore += total;
+                    showMessage(`You scored ${total} points!`);
+                } else {
+                    cpuScore += total;
+                    showMessage(`CPU scored ${total} points!`);
+                }
+            }
+        }
+
+        updateUI();
+
+        if (checkWin()) return;
+
+        // Switch turn
+        isPlayerTurn = (playerType === 'cpu');
+        updateUI();
+
+        if (!isPlayerTurn) {
+            setTimeout(cpuPlay, 1500);
+        }
+    }
+
+    function playerDraw() {
+        if (!isPlayerTurn || deck.length === 0) return;
+        playerHand.push(deck.pop());
+        updateUI();
+    }
+
+    function playerPass() {
+        if (!isPlayerTurn) return;
+        isPlayerTurn = false;
+        updateUI();
+        if (checkBlock()) return;
+        setTimeout(cpuPlay, 1000);
+    }
+
+    /* --- CPU AI --- */
+    function cpuPlay() {
+        const validMoves = getValidMoves(cpuHand, 'cpu');
+        
+        if (validMoves.length > 0) {
+            // Basic AI: Pick random valid move
+            const move = validMoves[Math.floor(Math.random() * validMoves.length)];
+            let side = move.side === 'both' ? (Math.random() > 0.5 ? 'left' : 'right') : move.side;
+            if (board.length === 0) side = 'right';
+            executePlay(move.tile, side, 'cpu', move);
+        } else {
+            if (deck.length > 0 && mode !== 'BLOCK') {
+                // CPU Draws
+                cpuHand.push(deck.pop());
+                updateUI();
+                setTimeout(cpuPlay, 800); // Try again
+            } else {
+                // CPU Passes
+                showMessage("CPU Passes");
+                isPlayerTurn = true;
+                updateUI();
+                checkBlock();
+            }
+        }
+    }
+
+    /* --- End Game Conditions --- */
+    function checkWin() {
+        if (playerHand.length === 0) {
+            endGame("YOU WIN! Domino!");
+            return true;
+        }
+        if (cpuHand.length === 0) {
+            endGame("CPU WINS! Domino!");
+            return true;
+        }
+        return false;
+    }
+
+    function checkBlock() {
+        const pMoves = getValidMoves(playerHand, 'player').length;
+        const cMoves = getValidMoves(cpuHand, 'cpu').length;
+        
+        if (pMoves === 0 && cMoves === 0 && deck.length === 0) {
+            endGame("Game Blocked! No more moves.");
+            return true;
+        }
+        if (mode === 'BLOCK' && pMoves === 0 && cMoves === 0) {
+            endGame("Game Blocked! No more moves.");
+            return true;
+        }
+        return false;
+    }
+
+    function endGame(desc) {
+        // Calculate final scores based on opponent hand in Draw/Block
+        if (mode === 'DRAW' || mode === 'BLOCK') {
+            if (playerHand.length === 0) {
+                playerScore += cpuHand.reduce((acc, t) => acc + t.val1 + t.val2, 0);
+            } else if (cpuHand.length === 0) {
+                cpuScore += playerHand.reduce((acc, t) => acc + t.val1 + t.val2, 0);
+            }
+        }
+
+        document.getElementById('game-over-desc').innerText = desc;
+        document.getElementById('final-player-score').innerText = playerScore;
+        
+        let cpuColor = cpuScore > playerScore ? "#50fa7b" : "#ff5555";
+        let playerColor = playerScore > cpuScore ? "#50fa7b" : "#ff5555";
+        if (playerScore === cpuScore) { cpuColor = "#f1fa8c"; playerColor = "#f1fa8c"; }
+        
+        document.getElementById('final-player-score').style.color = playerColor;
+        document.getElementById('final-cpu-score').innerText = cpuScore;
+        document.getElementById('final-cpu-score').style.color = cpuColor;
+        
+        setTimeout(() => showScreen('over'), 1500);
+    }
+
+    /* --- Messages --- */
+    function showMessage(text) {
+        ui.msgTitle.innerText = text;
+        ui.msgOverlay.style.display = 'block';
+        // Auto close if it's CPU info, else wait for button
+        if(text.includes("CPU") && !text.includes("Wins")) {
+            ui.msgTitle.nextElementSibling.style.display = 'none';
+            setTimeout(closeMessage, 1200);
+        } else {
+            ui.msgTitle.nextElementSibling.style.display = 'inline-block';
+        }
+    }
+    
+    function closeMessage() {
+        ui.msgOverlay.style.display = 'none';
+    }
+
+</script>
+</body>
+</html>
